@@ -15,13 +15,18 @@ interface PostResponse {
 }
 
 export interface PaginatedPostsResponse {
-  posts: PostResponse[];
-  pagination: {
-    currentPage: number;
-    limit: number;
-    hasMore: boolean;
-    totalFetched: number;
-    isUpToDate: boolean;
-    nextPage?: number;
-  };
+  success: boolean;
+  message: string;
+  data: {
+    posts: PostResponse[];
+    pagination: {
+      currentPage: number;
+      limit: number;
+      hasMore: boolean;
+      totalFetched: number;
+      isUpToDate: boolean;
+      nextPage?: number;
+    };
+  } | null;
+  error?: string;
 }

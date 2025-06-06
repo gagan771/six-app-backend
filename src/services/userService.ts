@@ -4,6 +4,8 @@ import { PaginatedPostsResponse } from '../types/post.types';
 import { getFallbackPostsWithExtra } from '../utils/postFallback';
 import { logger } from './log.services';
 
+export type UserServiceResponse = { success: boolean; message?: string; data?: any; error?: string }
+
 export async function createUserNodeOnSignup(userId: string, name: string, phone: string) {
   console.log('Creating user node with backend:', { userId, name, phone });
 
@@ -15,9 +17,10 @@ export async function createUserNodeOnSignup(userId: string, name: string, phone
     `;
     const params = { userId, name, phone };
     await session.run(query, params);
-
-  } catch (error) {
-    logger.error('createUserNodeOnSignup', 'Error creating user node:', error);
+    return { success: true, message: `Created user node ${userId}` };
+  } catch (error: any) {
+    await logger.error('createUserNodeOnSignup', 'Error creating user node:', error);
+    return { success: false, error: error.message || 'Failed to create user node' };
   } finally {
     await session.close();
   }
@@ -38,8 +41,10 @@ export async function addConnection(
       `,
       { userId1, userId2 }
     );
-  } catch (error) {
-    logger.error('addConnection', `Error connecting user :`, error);
+    return { success: true, message: `Connected ${userId1} ↔ ${userId2}` };
+  } catch (error: any) {
+    await logger.error('addConnection', `Error connecting user ${userId1} and ${userId2}`, error);
+    return { success: false, error: error.message || 'Failed to connect users' };
   } finally {
     await session.close();
   }
@@ -59,18 +64,20 @@ export async function getConnections(userId: string) {
       { userId }
     );
 
-    return result.records.map(record => ({
+    const data = result.records.map(record => ({
       connectionId: record.get('connectionId'),
       degree: record.get('degree').toInt()
     }));
-  } catch (error) {
-    logger.error('createUserNodeOnSignup', 'Error creating user node:', error);
+    return { success: true, message: 'Connections fetched successfully', data };
+  } catch (error: any) {
+    await logger.error('getConnections', `Error getting connections for user ${userId}`, error);
+    return { success: false, error: error.message || 'Failed to get connections' };
   } finally {
     await session.close();
   }
 }
 
-export async function getConnectionDegree(senderId: string, ownerId: string): Promise<number | null> {
+export async function getConnectionDegree(senderId: string, ownerId: string): Promise<{ success: boolean; message?: string; data?: number; error?: string }> {
   const session = driver.session();
   try {
     const result = await session.run(
@@ -83,12 +90,12 @@ export async function getConnectionDegree(senderId: string, ownerId: string): Pr
     );
 
     const record = result.records[0];
-    if (!record) return null;
+    if (!record) return { success: false, error: 'Connection degree not found' };
 
-    return record.get('degree').toInt();
-  } catch (err) {
-    console.error('Neo4j error:', err);
-    return null;
+    return { success: true, message: 'Connection degree fetched successfully', data: record.get('degree').toInt() };
+  } catch (error: any) {
+    await logger.error('getConnectionDegree', `Error getting connection degree for user ${senderId} and ${ownerId}`, error);
+    return { success: false, error: error.message || 'Failed to get connection degree' };
   } finally {
     await session.close();
   }
@@ -113,31 +120,35 @@ export async function getMutualConnections(userId1: string, userId2: string) {
       { userId1, userId2 }
     );
 
-    return result.records.map(record => ({
+    const data = result.records.map(record => ({
       mutualId: record.get('mutualId'),
       degree: record.get('degree').toInt()
     }));
-  } catch (error) {
-    console.error('Error fetching mutuals:', error);
-    throw error;
+    return { success: true, message: 'Mutual connections fetched successfully', data };
+  } catch (error: any) {
+    await logger.error('getMutualConnections', `Error fetching mutuals for user ${userId1} and ${userId2}`, error);
+    return { success: false, error: error.message || 'Failed to get mutual connections' };
   } finally {
     await session.close();
   }
 }
 
-export async function getMutualConnectionsCount(userId1: string, userId2: string): Promise<number> {
+export async function getMutualConnectionsCount(userId1: string, userId2: string): Promise<UserServiceResponse> {
   const session = driver.session();
   try {
     const result = await session.run(
       `
-      MATCH (u1:User {id: $userId1})-[:CONNECTED_TO*1..3]->(c:User),
+      MATCH (u1:User {id: $userId1})-[:CONNECTED_TO*1..3]->(c:User),  
             (u2:User {id: $userId2})-[:CONNECTED_TO*1..3]->(c)
       WHERE c.id <> $userId1 AND c.id <> $userId2
       RETURN count(DISTINCT c) AS mutualCount
       `,
       { userId1, userId2 }
     );
-    return result.records[0].get('mutualCount').toInt();
+    return { success: true, message: 'Mutual connections count fetched successfully', data: result.records[0].get('mutualCount').toInt() };
+  } catch (error: any) {
+    await logger.error('getMutualConnectionsCount', `Error fetching mutual connections count for user ${userId1} and ${userId2}`, error);
+    return { success: false, error: error.message || 'Failed to get mutual connections count' };
   } finally {
     await session.close();
   }
@@ -152,9 +163,11 @@ export async function removeUserConnection(userId1: string, userId2: string) {
       DELETE r
       `,
       { userId1, userId2 }
-    );
-  } catch (error) {
-    logger.error('createUserNodeOnSignup', 'Error creating user node:', error);
+    );  
+    return { success: true, message: 'Connection removed successfully' };
+  } catch (error: any) {
+    await logger.error('removeUserConnection', `Error removing connection for user ${userId1} and ${userId2}`, error);
+    return { success: false, error: error.message || 'Failed to remove connection' };
   } finally {
     await session.close();
   }
@@ -233,7 +246,7 @@ export async function getConnectedPosts(
 
       posts = rpcPosts || [];
     } catch (error) {
-      console.warn('RPC function failed, using fallback approach:', error);
+      await logger.warn('getConnectedPosts', 'RPC function failed, using fallback approach:', error);
       posts = await getFallbackPostsWithExtra(userId, eligibleUserIds, chatUserIds, userDegreeMap, offset, limit);
     }
 
@@ -256,7 +269,7 @@ export async function getConnectedPosts(
     for (const postOwnerId of uniquePostOwnerIds) {
       if (postOwnerId === userId) continue;
       const mutualCount = await getMutualConnectionsCount(userId, postOwnerId);
-      mutualsCountByUser.set(postOwnerId, mutualCount);
+      mutualsCountByUser.set(postOwnerId, mutualCount.data ?? 0);
     }
 
     const enrichedPosts = formattedPosts.map(post => ({
@@ -266,17 +279,28 @@ export async function getConnectedPosts(
 
 
     return {
-      posts: enrichedPosts,
-      pagination: {
-        currentPage: page,
-        limit,
-        hasMore,
-        totalFetched: (page - 1) * limit + formattedPosts.length,
-        isUpToDate: formattedPosts.length === 0 && page === 1,
-        nextPage: hasMore ? page + 1 : undefined
+      success: true,
+      message: 'Connected posts fetched successfully',
+      data: {
+        posts: enrichedPosts,
+        pagination: {
+          currentPage: page,
+          limit,
+          hasMore,
+          totalFetched: (page - 1) * limit + formattedPosts.length,
+          isUpToDate: formattedPosts.length === 0 && page === 1,
+          nextPage: hasMore ? page + 1 : undefined
+        }
       }
+    }
+  } catch (error: any) {
+    await logger.error('getConnectedPosts', 'Error fetching connected posts:', error);
+    return {
+      success: false,
+      message: 'Failed to fetch connected posts',
+      error: error.message || 'Failed to fetch connected posts',
+      data: null
     };
-
   } finally {
     await session.close();
   }

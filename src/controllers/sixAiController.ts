@@ -3,12 +3,20 @@ import { introduceUsersOpenai, suggestPostsToUserOpenai } from '../services/sixA
 
 export const introduceUsers = async (req: Request, res: Response) => {
     const { userId1, userId2, postId, chatId } = req.body;
-    const introduced =  await introduceUsersOpenai(userId1, userId2, postId, chatId);
-    res.json({ message: `Introduced` });
+    const result =  await introduceUsersOpenai(userId1, userId2, postId, chatId);
+    if (result.success) {
+        res.json({ success: true, message: result.message, data: result.data });
+    } else {
+        res.status(500).json({ success: false, message: result.error });
+    }
 }
 
 export const suggestPost = async (req: Request, res: Response) => {
     const { keyword_summary} = req.body;
-    const suggestion =  await suggestPostsToUserOpenai(keyword_summary);
-    res.json({ message: suggestion });
+    const result =  await suggestPostsToUserOpenai(keyword_summary);
+    if (result.success) {
+        res.json({ success: true, message: result.message, data: result.data });
+    } else {
+        res.status(500).json({ success: false, message: result.error });
+    }
 }   

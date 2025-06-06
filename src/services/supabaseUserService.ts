@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "../config/supabase";
+import { logger } from "./log.services";
 
 const FIXED_PASSWORD = process.env.SUPABASE_FIXED_PASSWORD || '';
 
@@ -11,7 +12,6 @@ export async function loginOrCreateUser(phone: string) {
 
     // If login successful, user exists
     if (!loginError && loginData.user) {
-      console.log('User exists and login successful');
       return {
         success: true,
         user: loginData.user,
@@ -39,8 +39,6 @@ export async function loginOrCreateUser(phone: string) {
         throw new Error(`User creation failed: ${createError.message}`);
       }
 
-      console.log('User created successfully');
-
       // 4. Log in the newly created user
       const { data: newLoginData, error: newLoginError } = await supabaseAdmin.auth.signInWithPassword({
         phone,
@@ -60,6 +58,7 @@ export async function loginOrCreateUser(phone: string) {
     }
 
   } catch (err: any) {
+    await logger.error('loginOrCreateUser', 'Error logging in or creating user:', err);
     return { 
       success: false, 
       error: err.message || 'User login/creation failed',

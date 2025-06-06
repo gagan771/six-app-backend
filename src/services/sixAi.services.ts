@@ -1,4 +1,5 @@
 import { OpenAiClient } from "../config/openai";
+import { logger } from "./log.services";
 import { sendMessage } from "./message.services";
 import { getAllActivePosts } from "./post.services";
 import { getPostFromSupabase, getUserDetailsFromSupabase } from "./supabasePosts.service";
@@ -22,7 +23,7 @@ export const introduceUsersOpenai = async (userId1: string, userId2: string, pos
 
         // 3. Get mutual connections + degree
         const mutuals = await getMutualConnections(userId1, userId2);
-        const mutualCount = mutuals.length;
+        const mutualCount = mutuals.data?.length || 0;
 
         // 4. Prepare OpenAI prompt
         const prompt = `You're a fun, friendly AI. Given two user names, how many mutuals they have, and a post content, generate a short intro message (1-2 sentences) to connect them. Mention the post, mutuals, and tailor the tone casually.
@@ -46,10 +47,10 @@ export const introduceUsersOpenai = async (userId1: string, userId2: string, pos
 
         Now generate a message for:
 
-        User 1: ${user1.name}  
-        User 2: ${user2.name}  
+        User 1: ${user1.data?.name}  
+        User 2: ${user2.data?.name}  
         They have ${mutualCount} mutuals  
-        Post: "${post.content}"`;
+        Post: "${post.data?.content}"`;
 
         // 5. Generate intro from OpenAI
         const response = await OpenAiClient.chat.completions.create({
@@ -64,10 +65,10 @@ export const introduceUsersOpenai = async (userId1: string, userId2: string, pos
             const sendResult = await sendMessage(SYSTEM_SENDER_ID, chatId, intro);
             if (!sendResult.success) throw new Error(sendResult.error || "Unknown error sending intro.");
         }
-
-    } catch (err) {
-        console.error("Error generating introduction:", err);
-        return null;
+        return { success: true, message: 'Introduction sent successfully', data: intro };
+    } catch (err: any) {
+        await logger.error('introduceUsersOpenai', 'Error generating introduction:', err);
+        return { success: false, error: err.message || 'Failed to generate introduction' };
     }
 };
 
@@ -76,9 +77,7 @@ export const suggestPostsToUserOpenai = async (keyword_summary: string[]) => {
     try {
         // 1. Fetch active posts
         const posts = await getAllActivePosts();
-        if (!posts || posts.length === 0) {
-            console.warn("No posts available");
-            return null;
+        if (!posts || posts.data?.length === 0) {
         }
 
 const prompt = `
@@ -120,7 +119,6 @@ Write the suggestion now.
         });
 
         let suggestion = response.choices[0]?.message?.content?.trim();
-        console.log("Generated suggestion:", suggestion);
 
         if (suggestion) {
             if (
@@ -128,13 +126,13 @@ Write the suggestion now.
                 (suggestion.startsWith("'") && suggestion.endsWith("'"))
             ) {
                 suggestion = suggestion.slice(1, -1);
-                return suggestion;
+                return { success: true, message: 'Post suggestion generated successfully', data: suggestion };
             }
         }
-        return null;
+        return { success: true, message: 'No posts available', data: null };
 
-    } catch (err) {
-        console.error("Error generating post suggestion:", err);
-        return null;
+    } catch (err: any) {
+        await logger.error('suggestPostsToUserOpenai', 'Error generating post suggestion:', err);
+        return { success: false, error: err.message || 'Failed to generate post suggestion' };
     }
 };

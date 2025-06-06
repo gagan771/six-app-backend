@@ -1,29 +1,41 @@
 import { supabaseAdmin } from "../config/supabase";
+import { logger } from "./log.services";
 
 export async function getUserDetailsFromSupabase(userId: string) {
-  const { data, error } = await supabaseAdmin
-    .from("users")
-    .select("id, name, keyword_summary")
-    .eq("id", userId)
-    .single();
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("users")
+      .select("id, name, keyword_summary")
+      .eq("id", userId)
+      .single();
 
   if (error) {
-    console.error("Supabase error fetching user:", error);
-    return null;
+    await logger.error('getUserDetailsFromSupabase', `Error fetching user ${userId}`, error);
+    return { success: false, error: error.message || 'Failed to fetch user' };
   }
-  return data;
+  return { success: true, message: 'User fetched successfully', data };
+  } catch (error: any) {
+    await logger.error('getUserDetailsFromSupabase', `Error fetching user ${userId}`, error);
+    return { success: false, error: error.message || 'Failed to fetch user' };
+  }
 }
 
 export async function getPostFromSupabase(postId: string) {
-  const { data, error } = await supabaseAdmin
-    .from("posts")
-    .select("id, content")
-    .eq("id", postId)
-    .single();
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("posts")
+      .select("id, content")
+      .eq("id", postId)
+      .single();
 
-  if (error) {
-    console.error("Supabase error fetching post:", error);
-    return null;
+    if (error) {
+      await logger.error('getPostFromSupabase', `Error fetching post ${postId}`, error);
+      return { success: false, error: error.message || 'Failed to fetch post' };
+    }
+    return { success: true, message: 'Post fetched successfully', data };
+
+  } catch (error: any) {
+    await logger.error('getPostFromSupabase', `Error fetching post ${postId}`, error);
+    return { success: false, error: error.message || 'Failed to fetch post' };
   }
-  return data;
 }
