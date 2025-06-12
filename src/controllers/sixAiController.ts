@@ -15,8 +15,8 @@ export const suggestPost = async (req: Request, res: Response) => {
     const { keyword_summary} = req.body;
     const result =  await suggestPostsToUserOpenai(keyword_summary);
     if (result.success) {
-        res.json({ success: true, message: result.message, data: result.data });
+        res.json({ success: true, data: result.data });
     } else {
-        res.status(500).json({ success: false, message: result.error });
+        res.status(500).json({ success: false, data: result.data });
     }
 }   

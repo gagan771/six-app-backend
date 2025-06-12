@@ -44,7 +44,7 @@ export async function saveOtp(phone: string, otp: string, ttlSeconds = 300): Pro
   }
 }
 
-export async function verifyOtp(phone: string, otp: string): Promise<OtpResponse> {
+export async function verifyOtpFromDynamo(phone: string, otp: string): Promise<OtpResponse> {
   try {
     const res = await client.send(
       new GetCommand({
@@ -52,6 +52,8 @@ export async function verifyOtp(phone: string, otp: string): Promise<OtpResponse
         Key: { phone },
       })
     );
+
+    console.log('res', res, 'Otp number not found')
 
     if (!res.Item) return { success: false, error: 'OTP not found' };
 
@@ -63,6 +65,8 @@ export async function verifyOtp(phone: string, otp: string): Promise<OtpResponse
     if (isMatch) {
       await deleteOtp(phone); // clean up after successful verification
     }
+
+    console.log('isMatch', isMatch)
 
     return { success: true, message: 'OTP verified successfully', data: isMatch };
   } catch (err: any) {

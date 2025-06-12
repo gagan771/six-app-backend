@@ -1,4 +1,6 @@
 import axios from 'axios';
+import dotenv from 'dotenv';
+dotenv.config();
 
 export const sendOutboundLoopOtp = async (phone: number, otp: string): Promise<boolean> => {
   try {
@@ -21,6 +23,7 @@ export const sendOutboundLoopOtp = async (phone: number, otp: string): Promise<b
 
     if (response.data?.success) {
       console.log('OTP sent successfully');
+      console.log('response ', response)
       return true;
     } else {
       console.error('Failed to send OTP:', response.data);

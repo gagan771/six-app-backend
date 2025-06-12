@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { generateOtp } from "../utils/generateOtp";
 import { sendOutboundLoopOtp } from "../services/loopOtpServices";
-import { saveOtp } from "../services/dynamoOtpService";
+import { saveOtp, verifyOtpFromDynamo } from "../services/dynamoOtpService";
 import { loginOrCreateUser } from "../services/supabaseUserService";
 
 export const processInboundMessage =  async (req: Request, res: Response): Promise<any> => {
@@ -15,9 +15,9 @@ export const processInboundMessage =  async (req: Request, res: Response): Promi
     // Sending the outbound top
     const otp = generateOtp();
     const data = await sendOutboundLoopOtp(recipient, otp);
-    console.log('otp sent data', data)
+    return res.status(200).json({ success: true, message: 'OTP sent successfully', otp: otp });
   }
-  res.sendStatus(200);
+  return res.status(200).json({ success: true, message: 'OTP sent successfully' });
 }
 
 export const processOutboundMessage =async (req: Request, res: Response): Promise<any> => {
@@ -29,47 +29,49 @@ export const processOutboundMessage =async (req: Request, res: Response): Promis
   
       const otp = generateOtp();
   
-      await saveOtp(phone, otp);
-  
-      console.log(`Sending OTP ${otp} to phone ${phone}`);
-  
-      return res.json({ message: 'OTP sent successfully', otp: otp });
+      const result = await saveOtp(phone, otp);
+      if(result.success) {
+        return res.status(200).json({ success: true, message: 'OTP sent successfully', otp: otp });
+      }
+      else{
+        return res.status(400).json({ success: false, error: result.error });
+      }
     } catch (err) {
       console.error('err', err);
-      res.status(500).json({ error: 'Internal Server Error' });
+      return res.status(500).json({ success: false, error: 'Error saving OTP' });
     }
   }
 
   export const verifyOtp =  async (req: Request, res: Response): Promise<any> => {
     try {
       const { phone, otp } = req.body;
+      console.log('verify otp', req.body)
   
       if (!phone || !otp) {
         return { success: false, error: 'Phone and OTP are required' };
       }
   
-      const isValid = await verifyOtp(phone, otp)
+      const isValid = await verifyOtpFromDynamo(phone, otp)
   
-      if (!isValid) {
-        return { success: false, error: `Invalid or expired OTP` };
+      if (!isValid || !isValid.success || !isValid.data) {
+        return res.status(400).json({ success: false, error: `Invalid or expired OTP` });
       }
   
       const result = await loginOrCreateUser(phone);
   
       if (!result?.success) {
-        return { success: false, error: result?.error };
+        return res.status(400).json({ success: false, error: result?.error });
       }
-  
-      return {
+      return res.status(200).json({ 
         success: true,
         message: 'OTP verified successfully',
         session: result.session,
         user: result.user,
         isNewUser: result.isNewUser
-      };
+      });
   
     } catch (err: any) {
       console.error('Unexpected error:', err.message || err);
-      return { success: false, error: 'Internal Server Error' };
+      return res.status(500).json({ success: false, error: 'Internal Server Error' });
     }
   }
