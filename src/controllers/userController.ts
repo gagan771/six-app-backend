@@ -37,7 +37,10 @@ export const fetchConnectionDetails = async (req: Request, res: Response) => {
     const { userId1, userId2 } = req.body;
     const mutualCount = await getMutualConnectionsCount(userId1, userId2);
     const degree = await getConnectionDegree(userId1, userId2);
-    res.json({ success: true, data: { mutualCount, connectionDegree: degree } });
+    res.json({ success: true, data: {
+        mutualCount: mutualCount.data,
+        connectionDegree: degree.data,
+    } });
 
 };
 

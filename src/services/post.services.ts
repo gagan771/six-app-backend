@@ -32,18 +32,16 @@ export async function getUserConnectionRequests(userId: string, userName: string
         const degree = await getConnectionDegree(request.reactor_id, userId);
         const mutuals = await getMutualConnectionsCount(request.reactor_id, userId);
 
-        console.log("keyword_summary value:", request.user?.keyword_summary);
 
         const keywords = Array.isArray(request.user?.keyword_summary)
           ? request.user.keyword_summary.map((k: string) => k.trim()).filter(Boolean)
           : [];
 
 
-        const intro = generateConnectionHighlight({
+        const intro = await generateConnectionHighlight({
           degree: degree.data ?? 0,
           mutuals: mutuals.data ?? 0,
           keywords: keywords ?? [],
-          postOwnerName: userName,
         });
 
         return {

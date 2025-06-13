@@ -53,7 +53,6 @@ export async function verifyOtpFromDynamo(phone: string, otp: string): Promise<O
       })
     );
 
-    console.log('res', res, 'Otp number not found')
 
     if (!res.Item) return { success: false, error: 'OTP not found' };
 
@@ -65,8 +64,6 @@ export async function verifyOtpFromDynamo(phone: string, otp: string): Promise<O
     if (isMatch) {
       await deleteOtp(phone); // clean up after successful verification
     }
-
-    console.log('isMatch', isMatch)
 
     return { success: true, message: 'OTP verified successfully', data: isMatch };
   } catch (err: any) {

@@ -74,13 +74,11 @@ export const introduceUsersOpenai = async (userId1: string, userId2: string, pos
 
 
 export const suggestPostsToUserOpenai = async (keyword_summary: string[]) => {
+    console.log(keyword_summary)
     try {
-        // 1. Fetch active posts
+        // 1. Fetch active posts (but don't fail if none available)
         const posts = await getAllActivePosts();
-        if (!posts || posts.data?.length === 0) {
-            return { success: false, message: 'No posts available', data: null };
-        }
-
+        
         console.log('posts', posts);
 
         // Filter out posts that are too short or don't make sense
@@ -88,58 +86,61 @@ export const suggestPostsToUserOpenai = async (keyword_summary: string[]) => {
             post.content && 
             post.content.trim().length > 10 && 
             !post.content.match(/^[a-zA-Z]{1,3}$/) // Filter out single words or very short nonsense
-        );
+        ) || [];
 
-        // Prepare user posts content for the prompt
-        const userPostsContent = validPosts && validPosts.length > 0 
+        // Randomly decide whether to use posts or go fully creative (70% creative, 30% posts)
+        const useRandomApproach = Math.random() > 0.3;
+        
+        // Prepare user posts content for the prompt (only sometimes)
+        const userPostsContent = !useRandomApproach && validPosts.length > 0 
             ? validPosts.map((post: any) => `- ${post.content}`).join('\n')
             : '';
 
         const prompt = `
-You're a casual, friendly AI that helps users discover experiences or meetups based on what they enjoy.
+You're a spontaneous, creative AI that suggests fun activities based on user interests. Be totally random and creative!
 
-The user's interests: ${keyword_summary.join(', ')}
+User's interests: ${keyword_summary.join(', ')}
 
-${userPostsContent ? `Here are some actual posts from users:\n${userPostsContent}\n\n` : ''}Here are some example posts for inspiration:
+${userPostsContent ? `Some user posts for context:\n${userPostsContent}\n\n` : ''}
 
-- Catching the sunset at Brooklyn Bridge — who's down to join?
-- Need quick feedback on my startup pitch deck, especially from YC folks!
-- Anyone want to hit the new taco place tonight? I'm buying!
-- Late-night coding marathon at the co-working space — need company!
-- Group study for the midterms at the library, snacks included!
-- Philosophy 210 drove me nuts. Anyone want to vent or swap notes?
-- Free tickets to the jazz show downtown if anyone's interested!
-- Morning jog in Central Park — let's make it a running club!
-- Looking for partners for the hackathon this weekend. Who's in?
-- Trying to find a roommate in SoHo — anyone moving soon?
-- Weekend photography walk around the city — beginners welcome!
-- Board game night at my place, pizza and drinks provided!
-- Rock climbing at the indoor gym — need a belaying partner!
-- Book club meeting for sci-fi lovers, discussing Dune this week!
-- Volunteer at the local animal shelter this Saturday morning!
+APPROACH: ${useRandomApproach ? 'IGNORE the posts completely. Create something totally new and unexpected based ONLY on the user interests.' : 'You can reference posts if relevant, but still be creative.'}
+
+Activity categories to randomly pick from:
+• Social hangouts (coffee, meals, parties)
+• Creative sessions (art, music, writing, crafts)
+• Learning/study groups (coding, languages, skills)
+• Sports/fitness (gym, hiking, running, yoga)
+• Entertainment (movies, games, concerts, shows)
+• Food adventures (cooking, restaurants, food tours)
+• Outdoor activities (parks, photography, exploring)
+• Professional networking (startup meetups, career stuff)
+• Volunteer work (community service, causes)
+• Random unique experiences (workshops, classes, weird stuff)
 
 INSTRUCTIONS:
-1. If the user's interests make sense and there are relevant posts, suggest something that matches
-2. If the user's interests are unclear, weird, or don't make sense, OR if the available posts don't make sense, create a random but engaging suggestion from the examples above
-3. Write a **short (1 sentence), fun, casual message** suggesting an activity
-4. Do NOT mention post numbers, IDs, or the word "post"
-5. Just give a cool, natural suggestion that sounds like a friend recommending something fun
+1. Pick a random activity category that loosely matches the user interests
+2. Create a SHORT, punchy one-liner (max 15 words)
+3. Make it sound like a friend texting you spontaneously
+4. Be unpredictable - don't always suggest the obvious thing
+5. Sometimes be totally random and surprising
+6. NO quotes, NO "post" mentions, NO explanations
 
-Examples of good responses:
-- "Coding + late nights? That co-working marathon sounds like your kind of scene!"
-- "Love jazz and free stuff? Tonight's jazz show might be just your vibe."
-- "Startup pitch deck feedback? Sounds like your next move!"
-- "Photography and city vibes? Weekend photo walk could be perfect for you!"
-- "Board games and chill nights? Pizza and game night might be your thing!"
+Examples of the vibe:
+- "Midnight ramen run anyone? I know a hidden gem!"
+- "Rooftop yoga at sunrise - who's brave enough?"
+- "Building blanket forts and watching 90s movies tonight!"
+- "Anyone want to learn salsa dancing badly with me?"
+- "3am coding session with energy drinks and questionable life choices?"
 
-Write ONE casual suggestion now - just the content, nothing else.
+Generate ONE random, short suggestion now:
 `.trim();
 
-        // 3. OpenAI Completion
+        // 2. OpenAI Completion with higher randomness
         const response = await OpenAiClient.chat.completions.create({
             model: "gpt-4",
             messages: [{ role: "user", content: prompt }],
-            temperature: 0.8, // Keep some randomness for variety
+            temperature: 0.9, // Higher randomness
+            top_p: 0.9, // More creative responses
         });
 
         let suggestion = response.choices[0]?.message?.content?.trim();
@@ -159,16 +160,45 @@ Write ONE casual suggestion now - just the content, nothing else.
             };
         }
 
-        // Fallback if OpenAI doesn't return anything
-        const fallbackSuggestions = [
-            "Coffee and good vibes? That new cafe downtown might be calling your name!",
-            "Weekend adventures await — how about exploring that new hiking trail?",
-            "Game night and pizza sounds like the perfect way to unwind!",
-            "Book lovers unite — that sci-fi book club could be your new favorite thing!",
-            "Photography meets city exploration — weekend photo walk anyone?"
+        // Dynamic fallback suggestions based on keywords
+        const keywordBasedFallbacks = [
+            // Tech/coding related
+            ...(keyword_summary.some(k => k.match(/code|tech|program|dev/i)) ? [
+                "Debugging session with pizza and terrible jokes?",
+                "Hackathon prep - let's build something ridiculous!",
+                "Code review party - bring your worst spaghetti code!"
+            ] : []),
+            
+            // Food related
+            ...(keyword_summary.some(k => k.match(/food|eat|cook|restaurant/i)) ? [
+                "Mystery food truck hunt - first one to find tacos wins!",
+                "Cooking disaster challenge - who can mess up pasta?",
+                "Late night diner philosophy discussions over pie!"
+            ] : []),
+            
+            // Fitness/sports
+            ...(keyword_summary.some(k => k.match(/gym|fit|sport|run|yoga/i)) ? [
+                "Sunrise yoga followed by terrible selfies?",
+                "Gym buddies needed for embarrassing workout faces!",
+                "Running club for people who hate running!"
+            ] : []),
+            
+            // Generic random ones
+            "Spontaneous museum adventure - let's get cultured!",
+            "Board game marathon with snacks and chaos!",
+            "Photography walk through the weirdest neighborhoods!",
+            "Book club for people who never finish books!",
+            "Karaoke night for tone-deaf legends only!"
         ];
         
-        const randomSuggestion = fallbackSuggestions[Math.floor(Math.random() * fallbackSuggestions.length)];
+        const availableFallbacks = keywordBasedFallbacks.length > 0 ? keywordBasedFallbacks : [
+            "Adventure time - let's try something completely random!",
+            "Spontaneous meetup for cool people (that's you)!",
+            "Random fun activity - trust me, it'll be great!",
+            "Mystery hangout spot - dress code: bring good vibes!"
+        ];
+        
+        const randomSuggestion = availableFallbacks[Math.floor(Math.random() * availableFallbacks.length)];
         
         return { 
             success: true, 
@@ -179,12 +209,12 @@ Write ONE casual suggestion now - just the content, nothing else.
     } catch (err: any) {
         await logger.error('suggestPostsToUserOpenai', 'Error generating post suggestion:', err);
         
-        // Even in error cases, provide a random engaging suggestion
+        // Emergency keyword-aware fallbacks
         const emergencyFallbacks = [
-            "Adventure calls — time to try something new and exciting!",
-            "Good vibes and new connections await at tonight's meetup!",
-            "Creative minds think alike — join the brainstorming session!",
-            "Food, friends, and fun — sounds like the perfect evening plan!"
+            "Something awesome is about to happen - you in?",
+            "Random adventure calling your name right now!",
+            "Perfect timing for trying something totally new!",
+            "Spontaneous fun alert - who's ready to join?"
         ];
         
         const emergencySuggestion = emergencyFallbacks[Math.floor(Math.random() * emergencyFallbacks.length)];

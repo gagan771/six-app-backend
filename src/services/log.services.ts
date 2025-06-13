@@ -1,4 +1,6 @@
 import { supabaseAdmin } from '../config/supabase';
+import dotenv from 'dotenv';
+dotenv.config();
 
 interface LogEntry {
     function_name: string;
