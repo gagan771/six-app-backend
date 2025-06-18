@@ -10,7 +10,6 @@ export async function getFallbackPostsWithExtra(
   offset: number,
   limit: number
 ): Promise<any[]> {
-  
   // Fetch more posts to account for filtering, plus one extra
   const batchMultiplier = Math.max(3, Math.ceil(100 / Math.max(eligibleUserIds.length, 1)));
   const batchSize = (limit + 1) * batchMultiplier; // +1 for hasMore check

@@ -7,8 +7,6 @@ import { logger } from './log.services';
 export type UserServiceResponse = { success: boolean; message?: string; data?: any; error?: string }
 
 export async function createUserNodeOnSignup(userId: string, name: string, phone: string) {
-  console.log('Creating user node with backend:', { userId, name, phone });
-
   const session = driver.session();
   try {
     const query = `
@@ -21,6 +19,23 @@ export async function createUserNodeOnSignup(userId: string, name: string, phone
   } catch (error: any) {
     await logger.error('createUserNodeOnSignup', 'Error creating user node:', error);
     return { success: false, error: error.message || 'Failed to create user node' };
+  } finally {
+    await session.close();
+  }
+}
+
+export async function checkIfUserAreConnected(userId1: string, userId2: string): Promise<UserServiceResponse> {
+  const session = driver.session();
+  try {
+    const result = await session.run(
+      `
+        MATCH (u1:User {id: $userId1})-[:CONNECTED_TO]->(u2:User {id: $userId2})
+        RETURN u1, u2
+      `, { userId1, userId2 });
+    return { success: true, message: 'User are connected', data: result.records[0] };
+  } catch (error: any) {
+    await logger.error('checkIfUserAreConnected', 'Error checking if users are connected:', error);
+    return { success: false, error: error.message || 'Failed to check if users are connected' };
   } finally {
     await session.close();
   }
@@ -188,18 +203,20 @@ export async function getConnectedPosts(
       MATCH (u:User {id: $userId})
       MATCH path = (u)-[:CONNECTED_TO*1..3]->(other:User)
       WHERE u.id <> other.id
-      WITH other.id AS connectionId, length(path) AS degree
+      WITH other.id AS connectionId, other.name AS name, length(path) AS degree
       ORDER BY degree
-      WITH connectionId, min(degree) AS degree
-      RETURN connectionId, degree
+      WITH connectionId, name, min(degree) AS degree
+      RETURN connectionId, name, degree
       UNION
-      RETURN $userId AS connectionId, 0 AS degree
+      MATCH (self:User {id: $userId})
+      RETURN $userId AS connectionId, self.name AS name, 0 AS degree
       `,
       { userId }
     );
-
+    
     const connections = neo4jResult.records.map(record => ({
       connectionId: record.get('connectionId'),
+      name: record.get('name'),
       degree: record.get('degree').toInt(),
     }));
 
@@ -215,8 +232,6 @@ export async function getConnectedPosts(
     );
     const chatUserIds: string[] = chatResult.records[0].get('chatUserIds');
 
-    console.log('chatUserIds:', chatUserIds);
-
     // Filter connections by degree if specified
     let eligibleConnections = connections;
     if (typeof degreeFilter === 'number' && degreeFilter > 0) {
@@ -229,7 +244,7 @@ export async function getConnectedPosts(
 
     // Try RPC first - now passing the degreeFilter parameter
     try {
-      const { data: rpcPosts, error } = await supabaseAdmin.rpc('get_filtered_posts', {
+      const { data: rpcPosts, error } = await supabaseAdmin.rpc('get_posts', {
         requesting_user_id: userId,
         eligible_user_ids: eligibleUserIds,
         chat_user_ids: chatUserIds,
@@ -276,7 +291,6 @@ export async function getConnectedPosts(
       ...post,
       mutual_count: mutualsCountByUser.get(post.user_id) ?? 0,
     }));
-
 
     return {
       success: true,

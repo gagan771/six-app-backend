@@ -6,6 +6,7 @@ import {
   DeleteCommand
 } from "@aws-sdk/lib-dynamodb";
 import { logger } from "./log.services";
+import { ChildProcess } from "child_process";
 const REGION = process.env.AWS_REGION || 'us-east-2';
 const TABLE_NAME = process.env.DYNAMO_TABLE || 'Otps';
 
@@ -53,8 +54,9 @@ export async function verifyOtpFromDynamo(phone: string, otp: string): Promise<O
       })
     );
 
-
-    if (!res.Item) return { success: false, error: 'OTP not found' };
+    if (!res.Item) {
+      return { success: false, error: 'OTP not found' };
+    }
 
     const item = res.Item as OtpItem;
     const now = Math.floor(Date.now() / 1000);
@@ -62,10 +64,11 @@ export async function verifyOtpFromDynamo(phone: string, otp: string): Promise<O
     const isMatch = item.otp === otp && item.ttl > now;
 
     if (isMatch) {
-      await deleteOtp(phone); // clean up after successful verification
+      await deleteOtp(phone);
+      return { success: true, message: 'OTP verified successfully', data: isMatch };
     }
 
-    return { success: true, message: 'OTP verified successfully', data: isMatch };
+    return { success: false, error: 'Invalid OTP' };
   } catch (err: any) {
     await logger.error('verifyOtp', 'Error verifying OTP:', err);
     return { success: false, error: 'Failed to verify OTP' };

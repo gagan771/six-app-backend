@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "../config/supabase";
+import { getChatExsist } from "./chat.service";
 import { logger } from "./log.services";
 import { generateConnectionHighlight } from "./request.service";
 import { getConnectionDegree, getMutualConnectionsCount } from "./userService";
@@ -32,17 +33,23 @@ export async function getUserConnectionRequests(userId: string, userName: string
         const degree = await getConnectionDegree(request.reactor_id, userId);
         const mutuals = await getMutualConnectionsCount(request.reactor_id, userId);
 
-
+        console.log(request.user)
         const keywords = Array.isArray(request.user?.keyword_summary)
           ? request.user.keyword_summary.map((k: string) => k.trim()).filter(Boolean)
           : [];
 
+        const chatExsist = await getChatExsist(userId, request.reactor_id);
 
-        const intro = await generateConnectionHighlight({
-          degree: degree.data ?? 0,
-          mutuals: mutuals.data ?? 0,
-          keywords: keywords ?? [],
-        });
+        let intro;
+        if (chatExsist.success) {
+          intro = `${request.user.name} is interested in your post.`;
+        } else {
+          intro = await generateConnectionHighlight({
+            degree: degree.data ?? 0,
+            mutuals: mutuals.data ?? 0,
+            keywords: keywords ?? [],
+          });
+        }
 
         return {
           ...request,

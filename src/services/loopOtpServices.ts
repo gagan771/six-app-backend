@@ -24,11 +24,9 @@ export const sendOutboundLoopOtp = async (phone: number, otp: string): Promise<b
     if (response.data?.success) {
       return true;
     } else {
-      console.error('Failed to send OTP:', response.data);
       return false;
     }
   } catch (error: any) {
-    console.error('Error sending OTP via Loop:', error.response?.data || error.message);
     return false;
   }
 };

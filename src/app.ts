@@ -1,8 +1,9 @@
 import express from 'express';
 import dotenv from 'dotenv';
-import otpRouter from './routes/otp';
-import userRouter from './routes/userRoutes';
-import sixAiRouter from './routes/sixAi';
+import otpRouter from './routes/otp.routes';
+import userRouter from './routes/user.routes';
+import sixAiRouter from './routes/sixai.routes';
+import chatRouter from './routes/chat.routes';
 dotenv.config();
 
 const app = express();
@@ -12,9 +13,10 @@ app.use(express.json());
 app.use('/api/otp', otpRouter);
 app.use('/api/users', userRouter);
 app.use('/api/sixai', sixAiRouter);
+// app.use('/api/chat', chatRouter);
 
 app.get('/', (_req, res) => {
-  res.send('OTP Backend is runnig');
+  res.status(200).send('Six AI v3 Backend is running');
 });
 
 app.listen(PORT, async() => {

@@ -74,13 +74,10 @@ export const introduceUsersOpenai = async (userId1: string, userId2: string, pos
 
 
 export const suggestPostsToUserOpenai = async (keyword_summary: string[]) => {
-    console.log(keyword_summary)
     try {
         // 1. Fetch active posts (but don't fail if none available)
         const posts = await getAllActivePosts();
-        
-        console.log('posts', posts);
-
+            
         // Filter out posts that are too short or don't make sense
         const validPosts = posts.data?.filter((post: any) =>  
             post.content && 

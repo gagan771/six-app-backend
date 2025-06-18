@@ -6,7 +6,7 @@ export async function seedData() {
   const totalUsers = 50; 
   const users = Array.from({ length: totalUsers }, (_, i) => `user${i + 1}`);
 
-  console.log('seeding data...');
+  console.log('seedin g data...');
 
   try {
     for (let i = 0; i < users.length; i++) {
