@@ -13,7 +13,7 @@ app.use(express.json());
 app.use('/api/otp', otpRouter);
 app.use('/api/users', userRouter);
 app.use('/api/sixai', sixAiRouter);
-// app.use('/api/chat', chatRouter);
+app.use('/api/chat', chatRouter);
 
 app.get('/', (_req, res) => {
   res.status(200).send('Six AI v3 Backend is running');

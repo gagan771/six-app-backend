@@ -12,8 +12,6 @@ export async function loginOrCreateUser(phone: string) {
       password: FIXED_PASSWORD,
     });
 
-
-
     // If login successful, user exists
     if (!loginError && loginData.user) {
       return {

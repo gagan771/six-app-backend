@@ -8,8 +8,8 @@ export const processInboundMessage = async (req: Request, res: Response): Promis
   const { alert_type, recipient, text } = req.body;
   if (alert_type === 'message_inbound') {
     const otp = generateOtp();
-    const data = await sendOutboundLoopOtp(recipient, otp);
-    const result = await saveOtp(recipient, otp);
+    await sendOutboundLoopOtp(recipient, otp);
+    await saveOtp(recipient, otp);
     return res.status(200).json({ success: true, message: 'OTP sent successfully', otp: otp });
   }
   return res.status(200).json({ success: true, message: 'OTP sent successfully' });

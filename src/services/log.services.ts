@@ -9,7 +9,8 @@ interface LogEntry {
 }
 
 class LogService {
-    private isProduction = process.env.NODE_ENV === 'production';
+    private isProduction = true;
+    // process.env.NODE_ENV === 'production';
 
     async log(functionName: string, message: string, details?: any) {
         const logEntry: LogEntry = {

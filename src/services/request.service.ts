@@ -1,4 +1,6 @@
 import { OpenAiClient } from "../config/openai";
+import { supabaseAdmin } from "../config/supabase";
+import { logger } from "./log.services";
 
 export const generateConnectionHighlight = async ({
   degree,
@@ -66,8 +68,8 @@ Write ONE notification with similar style but different wording:
     return generateFallbackHighlight(degree, mutuals, keywords);
 
   } catch (err: any) {
-    console.error('Error generating connection highlight:', err);
-    
+    await logger.error('generateConnectionHighlight', 'Error generating connection highlight:', err);
+
     // Return fallback on error
     return generateFallbackHighlight(degree, mutuals, keywords);
   }
@@ -113,3 +115,23 @@ function generateFallbackHighlight(degree: number, mutuals: number, keywords: st
     ? allOptions[Math.floor(Math.random() * allOptions.length)] || ''
     : `Someone ${action} your post.`;
 }
+
+export const deleteReaction = async (reactionId: string): Promise<{ success: boolean; error?: string }> => {
+  try {
+    const { error } = await supabaseAdmin 
+      .from('post_reactions')
+      .delete()
+      .eq('id', reactionId);
+
+    if (error) throw error;
+
+    return { success: true };
+  } catch (error) {
+    logger.error('deleteReaction', 'Error deleting reaction:', error as string);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to delete reaction'
+    };
+  }
+};
+

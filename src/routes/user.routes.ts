@@ -1,11 +1,12 @@
 import { Router } from 'express';
-import { connectUsers, createUserNode, fetchConnectionDetails, fetchConnections, fetchConnectionsRequests, fetchMutualConnections, fetchPosts, removeConnetion } from '../controllers/userController';
+import { connectUsers, createUserNode, fetchConnectionDetails, fetchConnections, fetchConnectionsRequests, fetchMutualConnections, fetchPosts, removeConnectionAndChat, removeConnection } from '../controllers/userController';
 
 const router = Router();
 
 router.post('/create-node', createUserNode);
 router.post('/connect', connectUsers);
-router.post('/remove-connetion', removeConnetion);
+router.post('/remove-connection', removeConnection);
+router.post('/remove-connection-and-chat', removeConnectionAndChat);
 router.post('/connection-details', fetchConnectionDetails);
 router.get('/connections/:id', fetchConnections);
 router.get('/mutuals/:userId1/:userId2', fetchMutualConnections); 

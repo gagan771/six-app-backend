@@ -1,8 +1,8 @@
 import { Router } from 'express';
-import { checkChatExsist } from '../controllers/chat.controller';
+import { createChatAndIntroMessageController } from '../controllers/chat.controller';
 
 const router = Router();
 
-router.get('/chat-exsist/:userId1/:userId2', checkChatExsist);
+router.post('/create-chat-and-intro-message', createChatAndIntroMessageController);
 
 export default router;

@@ -33,7 +33,6 @@ export async function getUserConnectionRequests(userId: string, userName: string
         const degree = await getConnectionDegree(request.reactor_id, userId);
         const mutuals = await getMutualConnectionsCount(request.reactor_id, userId);
 
-        console.log(request.user)
         const keywords = Array.isArray(request.user?.keyword_summary)
           ? request.user.keyword_summary.map((k: string) => k.trim()).filter(Boolean)
           : [];

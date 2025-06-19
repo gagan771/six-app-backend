@@ -65,6 +65,31 @@ export async function addConnection(
   }
 }
 
+export async function createBidirectionalConnection(
+  userId1: string,
+  userId2: string,
+): Promise<UserServiceResponse> {
+  const session = driver.session();
+  try {
+    await session.run(
+      `
+      MATCH (u1:User {id: $userId1})
+      MATCH (u2:User {id: $userId2})
+      MERGE (u1)-[:CONNECTED_TO]->(u2)
+      MERGE (u2)-[:CONNECTED_TO]->(u1)
+      `,
+      { userId1, userId2 }
+    );
+    return { success: true, message: `Created bidirectional connection between ${userId1} ↔ ${userId2}` };
+  } catch (error: any) {
+    await logger.error('createBidirectionalConnection', `Error creating bidirectional connection between users ${userId1} and ${userId2}`, error);
+    return { success: false, error: error.message || 'Failed to create bidirectional connection' };
+  } finally {
+    await session.close();
+  }
+}
+
+
 
 export async function getConnections(userId: string) {
   const session = driver.session();
@@ -115,8 +140,6 @@ export async function getConnectionDegree(senderId: string, ownerId: string): Pr
     await session.close();
   }
 }
-
-
 
 export async function getMutualConnections(userId1: string, userId2: string) {
   const session = driver.session();
@@ -174,14 +197,15 @@ export async function removeUserConnection(userId1: string, userId2: string) {
   try {
     await session.run(
       `
-      MATCH (u1:User {id: $userId1})-[r:CONNECTED_TO]->(u2:User {id: $userId2})
-      DELETE r
+      MATCH (u1:User {id: $userId1})-[r1:CONNECTED_TO]->(u2:User {id: $userId2})
+      MATCH (u2:User {id: $userId2})-[r2:CONNECTED_TO]->(u1:User {id: $userId1})
+      DELETE r1, r2
       `,
       { userId1, userId2 }
     );  
-    return { success: true, message: 'Connection removed successfully' };
+    return { success: true, message: 'Bidirectional connection removed successfully' };
   } catch (error: any) {
-    await logger.error('removeUserConnection', `Error removing connection for user ${userId1} and ${userId2}`, error);
+    await logger.error('removeUserConnection', `Error removing bidirectional connection for user ${userId1} and ${userId2}`, error);
     return { success: false, error: error.message || 'Failed to remove connection' };
   } finally {
     await session.close();
@@ -213,6 +237,7 @@ export async function getConnectedPosts(
       `,
       { userId }
     );
+
     
     const connections = neo4jResult.records.map(record => ({
       connectionId: record.get('connectionId'),
@@ -260,6 +285,7 @@ export async function getConnectedPosts(
       }
 
       posts = rpcPosts || [];
+
     } catch (error) {
       await logger.warn('getConnectedPosts', 'RPC function failed, using fallback approach:', error);
       posts = await getFallbackPostsWithExtra(userId, eligibleUserIds, chatUserIds, userDegreeMap, offset, limit);
@@ -319,3 +345,4 @@ export async function getConnectedPosts(
     await session.close();
   }
 }
+

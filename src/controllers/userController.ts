@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { addConnection, createUserNodeOnSignup, getConnectedPosts, getConnectionDegree, getConnections, getMutualConnections, getMutualConnectionsCount, removeUserConnection } from '../services/userService';
 import { getUserConnectionRequests } from '../services/post.services';
-import { removeUserConnectionAndChat } from '../services/connection.service';
+import { removeUserConnectionAndChat, removeUserConnectionFromNeo4j } from '../services/connection.service';
 
 export const createUserNode = async (req: Request, res: Response) => {
     const { userId, name, phone } = req.body;
@@ -23,9 +23,19 @@ export const connectUsers = async (req: Request, res: Response) => {
     }
 };
 
-export const removeConnetion = async (req: Request, res: Response) => {
+export const removeConnectionAndChat = async (req: Request, res: Response) => {
     const { userId1, userId2, chatId } = req.body;
     const result = await removeUserConnectionAndChat(userId1, userId2, chatId);
+    if (result.success) {
+        res.json({ success: true, message: result.message });
+    } else {
+        res.status(500).json({ success: false, error: result.error });
+    }
+};
+
+export const removeConnection = async (req: Request, res: Response) => {
+    const { userId1, userId2 } = req.body;
+    const result = await removeUserConnectionFromNeo4j(userId1, userId2);
     if (result.success) {
         res.json({ success: true, message: result.message });
     } else {
