@@ -377,25 +377,25 @@ export async function getConnectedPostsNew(
 ): Promise<PaginatedPostsResponse> {
   const startTime = Date.now();
   const offset = (page - 1) * limit;
-  
+
   try {
     // Try RPC call
     const rpcStartTime = Date.now();
     let posts: any[] = [];
-    
+
     try {
       const { data: rpcPosts, error } = await supabaseAdmin.rpc('get_posts_latest', {
         requesting_user_id: userId,
         page_offset: offset,
         page_limit: limit + 1, // Fetch one extra to check if more exist
-        degree_filter: (typeof degreeFilter === 'number' && degreeFilter >  0) ? degreeFilter : null
+        degree_filter: (typeof degreeFilter === 'number' && degreeFilter > 0) ? degreeFilter : null
       });
 
       if (error) {
         console.log('RPC error:', error);
         throw error;
       }
-      
+
       const rpcTime = Date.now() - rpcStartTime;
       console.log(`[getConnectedPosts] RPC posts query: ${rpcTime}ms`);
       posts = rpcPosts || [];
@@ -404,13 +404,13 @@ export async function getConnectedPostsNew(
       const rpcTime = Date.now() - rpcStartTime;
       console.log(`[getConnectedPosts] RPC failed after ${rpcTime}ms`);
       console.log('RPC error:', error);
-      
+
       // TODO: Implement fallback query if needed
       // const fallbackStartTime = Date.now();
       // posts = await getFallbackPostsWithExtra(userId, eligibleUserIds, chatUserIds, userDegreeMap, offset, limit);
       // const fallbackTime = Date.now() - fallbackStartTime;
       // console.log(`[getConnectedPosts] Fallback posts query: ${fallbackTime}ms`);
-      
+
       throw error; // For now, throw the error since fallback is commented out
     }
 
@@ -434,7 +434,7 @@ export async function getConnectedPostsNew(
       data: {
         posts: formattedPosts,
         pagination: {
-          currentPage: page,  
+          currentPage: page,
           limit,
           hasMore,
           totalFetched: (page - 1) * limit + formattedPosts.length,
@@ -457,11 +457,11 @@ export async function getConnectedPostsNew(
 // 1. FASTEST: Batch delete using proper syntax (recommended)
 export async function cacheUserConnectionsOptimized(userId: string) {
   const session = driver.session();
-  
+
   try {
     console.log(`Starting optimized cache generation for user: ${userId}`);
     const startTime = Date.now();
-    
+
     // Single atomic transaction
     const result = await session.executeWrite(async tx => {
       // Step 1: Delete old cache (fast)
@@ -469,7 +469,7 @@ export async function cacheUserConnectionsOptimized(userId: string) {
         MATCH (u:User {id: $userId})-[r:HAS_DEGREE]->()
         DELETE r
       `, { userId });
-      
+
       // Step 2: Build cache with single optimized query
       const cacheResult = await tx.run(`
         MATCH (u:User {id: $userId})
@@ -508,10 +508,10 @@ export async function cacheUserConnectionsOptimized(userId: string) {
         
         RETURN count(*) as cached_count
       `, { userId });
-      
+
       return cacheResult.records[0]?.get('cached_count') || 0;
     });
-    
+
     const totalTime = Date.now() - startTime;
     console.log(`Cache generated for ${result} connections in ${totalTime}ms`);
 
@@ -523,13 +523,13 @@ export async function cacheUserConnectionsOptimized(userId: string) {
       sortBy: 'degree',
       order: 'ASC'
     });
-    
+
     if (!cachedDataResult.success) {
       throw new Error(cachedDataResult.error || 'Failed to get cached data');
     }
-    
+
     const cachedConnections = cachedDataResult.data?.connections || [];
-    
+
     // Step 4: Store cached data in Supabase user_connections table
     if (cachedConnections.length > 0) {
       try {
@@ -538,25 +538,27 @@ export async function cacheUserConnectionsOptimized(userId: string) {
           user_id: userId,
           connection_id: conn.id,
           degree: conn.degree,
-          is_chat: conn.isChat
+          is_chat: conn.isChat,
+          mutuals: conn.mutuals,
+          updated_at: conn.updatedAt
         }));
-        
+
         // Delete existing connections for this user
         const { error: deleteError } = await supabaseAdmin
           .from('user_connections')
           .delete()
           .eq('user_id', userId);
-          
+
         if (deleteError) {
           console.error('Error deleting existing connections:', deleteError);
         }
-        
+
         // Insert new connections
         const { data: insertedData, error: insertError } = await supabaseAdmin
           .from('user_connections')
           .insert(supabaseData)
           .select();
-          
+
         if (insertError) {
           console.error('Error inserting connections to Supabase:', insertError);
         } else {
@@ -566,14 +568,14 @@ export async function cacheUserConnectionsOptimized(userId: string) {
         console.error('Supabase operation failed:', supabaseError);
       }
     }
-    
-    return { 
-      success: true, 
+
+    return {
+      success: true,
       message: `Cache generated for ${result} connections`,
       executionTime: totalTime,
       data: cachedConnections
     };
-    
+
   } catch (err) {
     console.error('Neo4j cache error:', err);
     return { success: false, error: 'Failed to generate cache' };
@@ -601,11 +603,11 @@ export async function getUserConnectionsOptimized(userId: string, options: {
 
   let whereClause = '';
   let orderClause = `ORDER BY r.${sortBy} ${order}`;
-  
+
   if (degree) {
     whereClause += ` AND r.degree = $degree`;
   }
-  
+
   if (onlyChats) {
     whereClause += ` AND r.isChat = true`;
   }
@@ -644,10 +646,10 @@ export async function getUserConnectionsOptimized(userId: string, options: {
   const session = driver.session();
   try {
     const params = { userId, degree, limit, offset };
-    
+
     const result = await session.run(COMBINED_QUERY, params);
     const data = result.records[0]?.get('result') || { connections: [], total: 0 };
-    
+
     // Clean up the data format
     const cleanConnections = data.connections.map((conn: any) => ({
       id: conn.id,
@@ -655,7 +657,7 @@ export async function getUserConnectionsOptimized(userId: string, options: {
       degree: convertNeo4jInt(conn.degree),
       mutuals: convertNeo4jInt(conn.mutuals)
     }));
-    
+
     return {
       success: true,
       data: {
