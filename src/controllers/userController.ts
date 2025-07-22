@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { addConnection, createUserNodeOnSignup, getConnectedPosts, getConnectionDegree, getConnections, getMutualConnections, getMutualConnectionsCount, removeUserConnection } from '../services/userService';
+import { addConnection, cacheUserConnectionsOptimized, createUserNodeOnSignup, getConnectedPosts, getConnectedPostsNew, getConnectionDegree, getConnections, getMutualConnections, getMutualConnectionsCount,  getUserConnectionsOptimized,  removeUserConnection } from '../services/userService';
 import { getUserConnectionRequests } from '../services/post.services';
 import { removeUserConnectionAndChat, removeUserConnectionFromNeo4j } from '../services/connection.service';
 
@@ -77,11 +77,17 @@ export const fetchMutualConnections = async (req: Request, res: Response) => {
 export const fetchPosts = async (req: Request, res: Response) => {
     const { userId } = req.params;
     const { degreeFilter, page, limit } = req.query;
-    const result = await getConnectedPosts(
+    
+    // Handle NaN values from Number() conversion
+    const parsedDegreeFilter = Number(degreeFilter);
+    const parsedPage = Number(page);
+    const parsedLimit = Number(limit);
+    
+    const result = await getConnectedPostsNew(
         userId,
-        Number(degreeFilter),
-        Number(page),
-        Number(limit)
+        isNaN(parsedDegreeFilter) ? 0 : parsedDegreeFilter,
+        isNaN(parsedPage) ? 1 : parsedPage,
+        isNaN(parsedLimit) ? 20 : parsedLimit
     );
     if (result.success) {
         res.json({ success: true, message: result.message, data: result.data });
@@ -94,4 +100,24 @@ export const fetchConnectionsRequests = async (req: Request, res: Response) => {
     const { userId, userName } = req.params;
     const data = await getUserConnectionRequests(userId, userName);
     res.json({ success: true, message: data.message, data: data.data });
+}
+
+export const cacheConnections = async (req: Request, res: Response) => {
+    const { userId } = req.params;
+    const result = await cacheUserConnectionsOptimized(userId);
+    if (result.success) {
+        res.json({ success: true, message: result.message, data: result.data, executionTime: result.executionTime });
+    } else {
+        res.status(500).json({ success: false, error: result.error });
+    }
+}
+
+export const getCachedConnections = async (req: Request, res: Response) => {
+    const { userId } = req.params;
+    const result = await getUserConnectionsOptimized(userId);
+    if (result.success) {
+        res.json({ success: true,data: result.data });
+    } else {
+        res.status(500).json({ success: false, error: result.error });
+    }
 }

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { connectUsers, createUserNode, fetchConnectionDetails, fetchConnections, fetchConnectionsRequests, fetchMutualConnections, fetchPosts, removeConnectionAndChat, removeConnection } from '../controllers/userController';
+import { connectUsers, createUserNode, fetchConnectionDetails, fetchConnections, fetchConnectionsRequests, fetchMutualConnections, fetchPosts, removeConnectionAndChat, removeConnection, cacheConnections, getCachedConnections } from '../controllers/userController';
 
 const router = Router();
 
@@ -12,5 +12,7 @@ router.get('/connections/:id', fetchConnections);
 router.get('/mutuals/:userId1/:userId2', fetchMutualConnections); 
 router.get('/posts/:userId', fetchPosts); 
 router.get('/connection-requests/:userId/:userName', fetchConnectionsRequests); 
+router.post('/cache-connections/:userId', cacheConnections);
+router.get('/cached-connections/:userId', getCachedConnections);
 
 export default router;
