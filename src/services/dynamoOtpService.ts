@@ -6,7 +6,6 @@ import {
   DeleteCommand
 } from "@aws-sdk/lib-dynamodb";
 import { logger } from "./log.services";
-import { ChildProcess } from "child_process";
 const REGION = process.env.AWS_REGION || 'us-east-2';
 const TABLE_NAME = process.env.DYNAMO_TABLE || 'Otps';
 
